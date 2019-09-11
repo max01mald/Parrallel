@@ -1,0 +1,583 @@
+#include "mpi.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+
+void r_package(int* arr, int* mat, int n, int line)
+{
+        int i=0;
+
+        while(i<n)
+        {
+                arr[i] = *(mat+n*i+line);
+                //printf("%d ",arr[i]); 
+                i++;
+        }
+        //printf("\n");
+}
+
+void c_package(int* arr, int* mat, int n, int line)
+{
+        int i=0;
+
+        while(i<n)
+        {
+                arr[i] = *(mat+n*line+i);
+                //printf("%d ",arr[i]);
+                i++;
+        }
+        //printf("\n");
+
+}
+
+void init(int* arr, int size)
+{
+        int i=0;
+
+        while(i<size)
+        {
+                arr[i] = -1;
+                i++;
+        }
+
+}
+
+
+void update(int* arr, int* row, int* col, int n)
+{
+        int i=0;
+        int j=0;
+
+        int dc = 0;
+
+        while(i<n)
+        {
+                while(j<n)
+                {
+                        if(*(arr + i*n +j) != 0)
+                        {
+                                if(row[i] != 100 &&  col[j] != 100)
+                                {
+                                        dc = row[i] + col[j];
+
+                                        if(dc < *(arr + i*n +j))
+                                        {
+                                                *(arr + i*n +j) = dc;
+                                        }
+                                }
+                        }
+                        j++;
+                }
+                j=0;
+                i++;
+        }
+}
+
+void local_update(int* arr, int row, int col, int n)
+{
+        int i=0;
+        int j=0;
+
+        int dc=0;
+
+        while(i<n)
+        {
+                while(j<n)
+                {
+                        if(*(arr + i*n +j) != 0)
+                        {
+                                if()
+                                {
+                                }
+
+                        }
+                        j++;
+                }
+                j=0;
+                i++;
+        {
+
+
+
+}
+
+void Floyd_matrix(int* matr,int m_size, int N)
+{
+        int rank;
+        MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+
+        int k = 0;
+        int n = sqrt(N);
+
+        int rP = 0;
+        int cP = 0;
+
+        int rE = 0;
+        int cE = 0;
+
+        while(k < N)
+        {
+                cP = k / n;
+                rP = (k / n) * n;
+
+                rE = rP;
+                cE = cP;
+
+                int rSender = (k/n);
+                int* rec_r1 = (int*)malloc(n*sizeof(int));
+                int* rec_r2 = (int*)malloc(n*sizeof(int));
+                int line_r1 = -1;
+                int line_r2 = -1;
+                int local_row = -1;
+                init(rec_r1,n);
+                init(rec_r2,n);
+
+                while(rSender<=n && k<(N/2))
+                {
+                        rE = rSender;
+                        while((rE+1)%(n) != 0)
+                        {
+                                rE+=1;
+                        }
+
+
+                        int r = rSender;
+
+                        //printf("rS %d rE %d\n",rSender,rE);
+
+                        while(r <= rE)
+                        {
+                                if(rSender == rank)
+                                {
+                                        //printf("k %d Sender %d to Rank %d line %d to lines ",k,rSender,r,k%n);
+
+                                        int l=0;
+                                        while(l<n)
+                                        {
+                                                if(rSender == r)
+                                                {
+                                                        if(l != k%n)
+                                                        {
+                                                                //printf("%d local ",l);
+                                                        }
+                                                }
+                                                else
+                                                {
+                                                        //printf("%d node ",l);
+
+                                                        int* s_arr=(int*)malloc(n*sizeof(int));
+                                                        r_package(s_arr,matr,n,k%n);
+
+                                                        MPI_Send(&l,1,MPI_INT,r,0,MPI_COMM_WORLD);
+                                                        MPI_Send(s_arr,n,MPI_INT,r,0,MPI_COMM_WORLD);
+                                                        free(s_arr);
+                                                }
+                                                l++;
+                                                }
+                                        //printf("\n");
+                                }
+                                else if(r == rank)
+                                {
+                                        //printf("k %d Recver %d Rank %d line %d to lines ",k,rank,rSender,k%n);
+
+                                        int j=0;
+                                        while(j<n)
+                                        {
+                                                if(rSender == rank)
+                                                {
+                                                        //printf("%d local ",j);
+                                                        if(j != k%n)
+                                                        {
+                                                                local_row = j;
+                                                        }
+                                                }
+                                                else
+                                                {
+                                                        //printf("%d node ",j);
+                                                        //int* rec_r = (int*)malloc(n*sizeof(int));
+                                                        //int line=0;
+
+                                                        if(j==0)
+                                                        {
+                                                                MPI_Recv(&line_r1,1,MPI_INT,rSender,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+                                                        }
+                                                        else
+                                                        {
+                                                                MPI_Recv(&line_r2,1,MPI_INT,rSender,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+                                                        }
+
+                                                        MPI_Recv(rec_r1,n,MPI_INT,rSender,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+
+                                                        int m = 0;
+                                                        
+                                                        while(m<n)
+                                                        {
+                                                                //printf("%d ",rec_r[m]);
+                                                                m++;
+                                                        }
+                                                        //printf("\n");
+                                                        //free(rec_r);
+                                                }
+                                                j++;
+                                        }
+                                        //printf("\n");
+                                }
+                                r+=1;
+                        }
+                        rSender+=n;
+                }
+
+                int rSender2 = ((k/n));
+
+                while(rSender2+n < N)
+                {
+                        rSender2+=n;
+                }
+
+                while(rSender2>=0 && k>=(N/2))
+                {
+                        rE = rSender2;
+                        while((rE-1)%n !=0)
+                        {
+                                rE--;
+                        }
+                        rE--;
+
+                        int r = rSender2;
+
+                        while(r >= rE)
+                        {
+                                if(rSender2 == rank)
+                                {
+                                        //printf("k %d SEND from Sender %d to Rank %d send line %d to lines ",k,rSender2,r,k%n);
+
+                                        int l=0;
+                                        while(l<n)
+                                        {
+                                                if(rSender2 == r)
+                                                {
+                                                if(l != k%n)
+                                                        {
+                                                                //printf("%d local ",l);
+                                                        }
+                                                }
+                                                else
+                                                {
+                                                        //printf("%d node ",l);
+                                                        int* s_arr=(int*)malloc(n*sizeof(int));
+                                                        r_package(s_arr,matr,n,k%n);
+
+                                                        MPI_Send(&l,1,MPI_INT,r,0,MPI_COMM_WORLD);
+                                                        MPI_Send(s_arr,n,MPI_INT,r,0,MPI_COMM_WORLD);
+                                                        free(s_arr);
+                                                }
+                                                l++;
+                                        }
+                                        //printf("\n");
+                                }
+                                else if(rank == r)
+                                {
+                                        //printf("k %d Recv from cSender %d to Rank %d send line %d to lines ",k,rSender2,rank,k%n);
+
+                                        int j=0;
+                                        while(j<n)
+                                        {
+                                                if(rSender2 == r)
+                                                {
+                                                        if(j != k%n)
+                                                        {
+                                                                //printf("%d local ",j);
+                                                                local_row = j;
+                                                        }
+                                                }
+                                                else
+                                                {
+                                                        //printf("%d node ",j);
+                                                        //int* rec_r = (int*)malloc(n*sizeof(int));
+
+if(j==0)
+                                                        {
+                                                                MPI_Recv(&line_r1,1,MPI_INT,rSender2,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+                                                        }
+                                                        else
+                                                        {
+                                                                MPI_Recv(&line_r2,1,MPI_INT,rSender2,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+                                                        }
+
+                                                        MPI_Recv(rec_r2,n,MPI_INT,rSender2,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+
+                                                        int m = 0;
+                                                        while(m<n)
+                                                        {
+                                                                //printf("%d ",rec_r[m]);
+                                                                m++;
+                                                        }
+                                                        //printf("\n");
+                                                        //free(rec_r);
+                                                }
+                                                j++;
+                                        }
+                                        //printf("\n");
+                                }
+                                r--;
+                        }
+                        rSender2-=n;
+                }
+
+
+                int cSender = (k / n)*n;
+                int* rec_c1 = (int*)malloc(n*sizeof(int));
+                int* rec_c2 = (int*)malloc(n*sizeof(int));
+                int line_c1 = -1;
+                int line_c2 = -1;
+                int local_column = -1;
+                init(rec_c1,n);
+                init(rec_c2,n);
+
+while(cSender<n)
+                {
+                        cE = cSender;
+                        while((cE-cSender) % (N-n) != 0)
+                        {
+                                cE += n;
+                        }
+                        cE += n;
+
+                        int c = cSender;
+
+                        while(c <= cE)
+                        {
+                                if(cSender == rank)
+                                {
+                                        //printf("k %d SEND from cSender %d to Rank %d send line %d to lines ",k,cSender,c,k%n);
+
+                                        int l=0;
+                                        while(l<n)
+                                        {
+                                                if(cSender == c)
+                                                {
+                                                        if(l != k%n)
+                                                        {
+                                                                //printf("%d local ",l);
+                                                                local_column = l;
+                                                        }
+                                                }
+                                                else
+                                                {
+                                                        //printf("%d node ",l);
+                                                        //printf("k %d from %d to %d line %d\n",k,cSender,c,l);
+                                                        //printf("rank %d k %d\n",rank,k);
+                                                        int* s_arr=(int*)malloc(n*sizeof(int));
+                                                        c_package(s_arr,matr,n,k%n);
+MPI_Send(&l,1,MPI_INT,c,0,MPI_COMM_WORLD);
+                                                        MPI_Send(s_arr,n,MPI_INT,c,0,MPI_COMM_WORLD);
+                                                        free(s_arr);
+                                                }
+                                                l++;
+                                        }
+                                        //printf("\n");
+                                }
+                                else if(rank == c)
+                                {
+                                        //printf("k %d RECV from cP %d at Rank %d send line %d to lines ",k,cSender,rank,k%n);
+                                        int j=0;
+                                        while(j<n)
+                                        {
+                                                if(cSender == rank)
+                                                {
+                                                        //printf("%d local ",j);
+                                                        if(j != k%n)
+                                                        {
+                                                                local_column = j;
+                                                        }
+                                                }
+                                                else
+                                                {
+                                                        //printf("%d node ",j);
+                                                        //int* rec_c = (int*)malloc(n*sizeof(int));
+                                                        //int line=0;
+
+                                                        if(j==0)
+                                                        {
+                                                                MPI_Recv(&line_c1,1,MPI_INT,cSender,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+                                                        }
+                                                        else
+                                                        {
+                                                                MPI_Recv(&line_c2,1,MPI_INT,cSender,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+                                                        }
+MPI_Recv(rec_c1,n,MPI_INT,cSender,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+
+                                                        int m = 0;
+                                                        while(m<n)
+                                                        {
+                                                                //printf("%d ",rec_c[m]);
+                                                                m++;
+                                                        }
+                                                        //printf("\n");
+                                                        //free(rec_c);
+                                                }
+                                                j++;
+                                        }
+                                        //printf("\n");
+                                }
+                                c += n;
+                        }
+                        cSender++;
+                }
+
+                int cSender2 = (k/n)*n;
+
+                while((cSender2+1) %n != 0)
+                {
+                        cSender2++;
+                }
+                //printf("cSender2 %d \n",cSender2);
+                while(cSender2>=n)
+                {
+                        cE = cSender2;
+                        while((cE-n) >= 0)
+                        {
+                                cE -= n;
+                        }
+                        //printf("c %d\n",cSender2);
+                        //printf("cE %d\n",cE);
+
+                        int c = cSender2;
+
+                        while(c >= cE)
+                        {
+                                //printf("c %d\n",c);
+                                if(cSender2 == rank)
+                                {
+                                        //printf("k %d SEND from cSender %d to Rank %d send line %d to lines ",k,cSender2,c,k%n);
+                                        if(cSender2 == rank)
+                                {
+                                        //printf("k %d SEND from cSender %d to Rank %d send line %d to lines ",k,cSender2,c,k%n);
+
+                                        int l=0;
+                                        while(l<n)
+                                        {
+                                                if(cSender2 == c)
+                                                {
+                                                        if(l != k%n)
+                                                        {
+                                                                //printf("%d local ",l);
+                                                                local_column = l;
+                                                        }
+                                                }
+                                                else
+                                                {
+                                                        //printf("%d node ", l);
+                                                        //printf("k %d from %d to %d line %d\n",k,cSender2,c,l);
+                                                        int* s_arr=(int*)malloc(n*sizeof(int));
+                                                        c_package(s_arr,matr,n,k%n);
+
+                                                        MPI_Send(&l,1,MPI_INT,c,0,MPI_COMM_WORLD);
+                                                        MPI_Send(s_arr,n,MPI_INT,c,0,MPI_COMM_WORLD);
+                                                        free(s_arr);
+                                                }
+                                                l++;
+                                        }
+                                        //printf("\n");
+                                }
+                                else if(rank == c)
+                                {
+                                        //printf("k %d RECV from  %d at Rank %d send line %d to lines ",k,cSender2,rank,k%n);
+                                        int j=0;
+                                        while(j<n)
+                                        {
+                                                if(cSender2 == rank)
+                                                {
+                                                        //printf("%d local ",j);
+                                                        if(j != k%n)
+                                                        {
+                                                                local_column = j;
+                                                        }
+                                                }
+                                                else
+                                                {
+                                                        //printf("%d node ",j);
+
+                                                        //int* rec_c = (int*)malloc(n*sizeof(int));
+                                                         if(j==0)
+                                                        {
+                                                                MPI_Recv(&line_c1,1,MPI_INT,cSender2,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+                                                        }
+                                                        else
+                                                        {
+                                                                MPI_Recv(&line_c2,1,MPI_INT,cSender2,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+                                                        }
+
+                                                        MPI_Recv(rec_c1,n,MPI_INT,cSender2,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+
+                                                        int m = 0;
+                                                        while(m<n)
+                                                        {
+                                                                //printf("%d ",rec[m]);
+                                                                m++;
+                                                        }
+                                                        //free(rec_c);
+                                                }
+                                                j++;
+                                        }
+                                        //printf("\n");
+                                }
+                                c-=n;
+                        }
+                        //printf("Out\n");                 
+                        //printf("cSender2 %d\n",cSender2);
+                        cSender2--;
+                }
+
+                if(local_column != -1 && local_row != -1)
+                {
+                        local_update(matr,local_column,local_row,n);
+                }
+
+                if(rec_c1[0] != -1 && rec_r1[0] != -1)
+                {
+                        update(matr,rec_r1,rec_c1,n);
+                }
+
+                if(rec_c2[0] != -1 && rec_r2[0] != -1)
+                {
+                        update(matr,rec_r2,rec_c2,n);
+                }
+free(rec_c1);
+                free(rec_c2);
+                free(rec_r1);
+                free(rec_r2);
+
+                MPI_Barrier(MPI_COMM_WORLD);
+
+                k++;
+        }
+
+}
+
+int main(int argc, char *argv[])
+{
+        MPI_Comm parent;
+        MPI_Init(&argc, &argv);
+        MPI_Comm_get_parent(&parent);
+
+        int rec_size = 0;
+        int P = 0;
+
+        MPI_Recv(&rec_size, 1, MPI_INT, 0, MPI_ANY_TAG, parent, MPI_STATUS_IGNORE);
+
+        MPI_Recv(&P,1,MPI_INT,0,MPI_ANY_TAG,parent,MPI_STATUS_IGNORE);
+
+        int* Buff = (int*) malloc(rec_size*sizeof(int));
+
+        MPI_Recv(Buff,rec_size,MPI_INT, 0, MPI_ANY_TAG, parent, MPI_STATUS_IGNORE);
+
+        Floyd_matrix(Buff,rec_size,P);
+
+        MPI_Send(Buff,rec_size,MPI_INT,0,0,parent);
+
+        free(Buff);
+        MPI_Finalize();
+        return 0;
+}
+                                             

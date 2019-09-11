@@ -1,0 +1,462 @@
+#include "mpi.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+
+void swap (int* x, int* y)
+{
+        int temp;
+        temp = *x;
+        *x = *y;
+        *y = temp;
+
+}
+
+int pivot(int beg, int length)
+{
+        return ((beg + length)/2);
+}
+
+void quicksort(int arr[], int beg, int length)
+{
+
+        if(beg < length)
+        {
+                int piv = pivot(beg, length);
+
+                swap(&arr[beg],&arr[piv]);
+
+                int comp = arr[beg];
+
+                int i = beg+1;
+                int j = length;
+
+                while(i<=j)
+                {
+                        while((i<=length) && (arr[i] <= comp))
+                                i++;
+                        while((j>=beg) && (arr[j] > comp))
+                                j--;
+                        if(i < j)
+                                swap(&arr[i], &arr[j]);
+                }
+
+                swap(&arr[beg],&arr[j]);
+
+                quicksort(arr, beg, j-1);
+                quicksort(arr, j+1, length);
+        }
+}
+
+void print(int arr[], int size)
+{
+        int i=0;
+        while(i<size)
+        {
+                printf("%d, ",arr[i]);
+                i++;
+        }
+	printf("\n");
+}
+
+void to_bin(char bin[], int size, int num)
+{
+        int i = 0;
+        int b_num;
+
+        size = size-1;
+
+        while(size != -1)
+        {
+                b_num = pow(2,size);
+
+                if(b_num <= num)
+                {
+                        bin[i] = '1';
+                        num = num - b_num;
+                }
+                else
+                {
+                        bin[i] = '0';
+                }
+                i++;
+                size--;
+        }
+}
+
+void to_rank(char bin[], int size, int* rank)
+{
+        size = size-1;
+        int i=0;
+        int num = 0;
+        while(size != -1)
+        {
+                if(bin[size] == '1')
+                {
+                        num += pow(2,i);
+                        //printf("%f\n",pow(2,i));
+                }
+                size--;
+                i++;
+        }
+
+	*rank = num;
+}
+
+void pivot_broad(int i, int rank, int* pivot)
+{
+        int k = 1;
+        int send = 0;
+
+        MPI_Barrier(MPI_COMM_WORLD);
+
+        if(i == 0)
+        {
+                if(rank == 0)
+                {
+                        send = *pivot;
+
+                        while(k<8)
+                        {
+                                MPI_Send(&send, 1, MPI_INT, k, 0, MPI_COMM_WORLD);
+                                k++;
+                        }
+                        MPI_Barrier(MPI_COMM_WORLD);
+                }
+                else
+                {
+                        MPI_Barrier(MPI_COMM_WORLD);
+                        MPI_Recv(&send, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                        *pivot = send;
+                }
+        }
+	else if(i == 1)
+        {
+                if(rank == 0)
+                {
+                        k=1;
+                        send = *pivot;
+                        while(k<4)
+                        {
+                                MPI_Send(&send, 1, MPI_INT, k, 0, MPI_COMM_WORLD);
+                                k++;
+                        }
+                        MPI_Barrier(MPI_COMM_WORLD);
+                }
+                else if(rank == 4)
+                {
+                        k = 5;
+                        send = *pivot;
+                        while(k<8)
+                        {
+                                MPI_Send(&send, 1, MPI_INT, k, 0, MPI_COMM_WORLD);
+                                k++;
+                        }
+                        MPI_Barrier(MPI_COMM_WORLD);
+                        }
+                else
+                {
+                        MPI_Recv(&send, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                        MPI_Barrier(MPI_COMM_WORLD);
+                        *pivot = send;
+                }
+
+	}
+        else if(i == 2)
+        {
+                if(rank == 0)
+                {
+                        send = *pivot;
+                        MPI_Send(&send, 1, MPI_INT, 1, 0, MPI_COMM_WORLD);
+                        MPI_Barrier(MPI_COMM_WORLD);
+                }
+                else if(rank == 2)
+                {
+                        send = *pivot;
+                        MPI_Send(&send, 1, MPI_INT, 3, 0, MPI_COMM_WORLD);
+                        MPI_Barrier(MPI_COMM_WORLD);
+                }
+                else if(rank == 4)
+                {
+                        send = *pivot;
+                        MPI_Send(&send, 1, MPI_INT, 5, 0, MPI_COMM_WORLD);
+                        MPI_Barrier(MPI_COMM_WORLD);
+                }
+                else if(rank == 6)
+                {
+                        send = *pivot;
+                        MPI_Send(&send, 1, MPI_INT, 7, 0, MPI_COMM_WORLD);
+                        MPI_Barrier(MPI_COMM_WORLD);
+                }
+                else
+                {
+                        MPI_Recv(&send, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                        MPI_Barrier(MPI_COMM_WORLD);
+                        *pivot = send;
+                }
+        }
+}
+
+void seperate(int piv, int B[], int B1[], int B2[], int size, int* b1, int* b2)
+{
+        int i=0;
+
+        while(i<size)
+        {
+                if(B[i]<=piv)
+                {
+                        B1[*b1] = B[i];
+                        *b1 = *b1 +1;
+                }
+                else if(B[i]>piv)
+                {
+                        B2[*b2] = B[i];
+                        *b2 = *b2 +1;
+                }
+                i++;
+        }
+}
+
+void array_merge(int arr[], int arr1[], int arr2[], int length1, int length2)
+{
+        int i=0;
+        int j=0;
+
+        while(i<length1)
+        {
+                arr[i] = arr1[i];
+                i++;
+        }
+
+	while(j<length2)
+        {
+                arr[i] = arr2[j];
+                i++;
+                j++;
+        }
+}
+
+void n_swap(char n[], char n2[])
+{
+        int i=0;
+
+        while(i<3)
+        {
+                n2[i] = n[i];
+                i++;
+        }
+}
+
+void Hyper_Quick(int B[], int n, int F[], int* size_f)
+{
+        int processors;
+        int rank;
+
+        MPI_Comm_size(MPI_COMM_WORLD, &processors);
+
+        MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+        int dimensions = log10(processors)/log10(2);
+        const int SIZE = dimensions;
+
+        char name[SIZE];
+
+        to_bin(name,SIZE,rank);
+
+        int i=0;
+
+        int size_b = 0;
+        int size_b1=0;
+        int size_b2=0;
+
+        const int SIZE_B = 9*n;
+        const int SIZE_F = 9*n;
+        const int SIZE_NB = 9*n;
+        const int SIZE_C = 9*n;
+        printf("SIZE OF B %d\n",SIZE_B);
+        int F2[SIZE_F];
+        int B1[SIZE_B];
+        int B2[SIZE_B];
+        int NB[SIZE_NB];
+        int C[SIZE_C];
+
+        int piv = pivot(0,n);
+        int key = B[piv];
+
+		pivot_broad(0, rank, &key);
+
+        seperate(key,B, B1, B2, n, &size_b1, &size_b2);
+
+        while(i<SIZE+1)
+        {
+                if(name[i]=='0')
+                {
+                        char name2[SIZE];
+                        n_swap(name,name2);
+                        name2[i] = '1';
+
+                        int send_rank;
+                        to_rank(name2, SIZE, &send_rank);
+                        printf("%d\n",i);
+                        MPI_Send(&size_b2, 1, MPI_INT, send_rank, 0, MPI_COMM_WORLD);
+                        MPI_Barrier(MPI_COMM_WORLD);
+                        printf("Sb %d\n",size_b2);
+                        int size_c;
+                        printf("rec1\n");
+                        MPI_Recv(&size_c, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                        MPI_Barrier(MPI_COMM_WORLD);
+                        printf("%d\n",size_c);
+
+                        printf("b2 %d\n",size_b2);
+                        MPI_Send(&B2, SIZE_B, MPI_INT, send_rank, 0, MPI_COMM_WORLD);
+                        
+                        MPI_Barrier(MPI_COMM_WORLD);
+                        printf("Sb %d\n", size_b2);
+                        //int* C;
+                        //C = (int*) malloc(size_c * sizeof(int));
+
+                        MPI_Recv(&C, SIZE_B, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                        MPI_Barrier(MPI_COMM_WORLD);
+                        printf("rec2\n");
+                        if(i!=3)
+                        {
+                                int size_nb = size_b1 + size_c;
+
+                        //	int *NB;
+                        //	NB=(int*)malloc(size_nb * sizeof(int));
+
+                                array_merge(NB,B1,C,size_b1,size_c);
+
+                                piv = pivot(0,size_nb);
+                                key = NB[piv];
+
+                                pivot_broad(i, rank, &key);
+
+                                size_b1 = 0;
+                                size_b2 = 0;
+                                //printf("yo");
+                                printf("SIZEEE NB %d, b1 %d, c %d\n",size_nb, size_b1, size_c);
+                                printf("b1 size %d\n",8*n);
+                        	seperate(key,NB, B1, B2, size_nb, &size_b1, &size_b2);
+
+                        //	free(NB);
+                        }
+                        else
+                        {
+                        	*size_f = size_b1 + size_c-1;
+
+                        	array_merge(F2,B1,C,size_b1,size_c);
+                        }
+                        
+                }
+                else
+                {
+                        char name2[SIZE];
+                        n_swap(name,name2);
+                        name2[i] = '0';
+
+                        int send_rank;
+                        to_rank(name2, SIZE, &send_rank);
+
+                        MPI_Send(&size_b1, 1, MPI_INT, send_rank, 0, MPI_COMM_WORLD);
+                        MPI_Barrier(MPI_COMM_WORLD);
+
+                        int size_c;
+                        MPI_Recv(&size_c, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+                        MPI_Barrier(MPI_COMM_WORLD);
+                      //  printf("Send b1 %d\n",size_b1);
+                        if(size_b1 < 0)
+                                printf("spooky\n");
+                        MPI_Send(&B1, SIZE_B, MPI_INT, send_rank, 0, MPI_COMM_WORLD);
+                        MPI_Barrier(MPI_COMM_WORLD);
+                      //        printf("b1 Sent\n");
+                        //int* C;
+                        //C=(int*)mallloc(size_c * sizeof(int));
+
+                        MPI_Recv(&C, SIZE_B, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                        MPI_Barrier(MPI_COMM_WORLD);
+
+                        if(i != 3)
+                        {
+                                int size_nb = size_b2 + size_c;
+
+                        //	int* NB;
+                        //	NB=(int*)malloc(size_nb * sizeof(int));
+
+                                array_merge(NB,B2,C,size_b2, size_c);
+
+                                piv = pivot(0,size_nb);
+                                key = NB[piv];
+
+                                pivot_broad(i, rank, &key);
+
+                                size_b1 = 0;
+                                size_b2 = 0;
+
+                        //	seperate(key,NB, B1, B2, size_nb, &size_b1, &size_b2);
+
+                        //	free(NB);
+
+                        }
+                        else
+                        {
+                        //	*size_f = size_b2 + size_c-1;
+
+                        //	array_merge(F2,B2,C,size_b2,size_c);
+                        }
+                        //free(C);
+                }
+                i++;
+        }
+		quicksort(F2,0,*size_f);
+        //MPI_Barrier(MPI_COMM_WORLD);
+        //printf("Rank %d\n",rank);
+        //print(F2,*size_f);
+        
+        int j=0;
+        while(j<=*size_f)
+        {
+                F[j] = F2[j];
+                j++;
+        }
+
+}
+
+
+int main(int argc, char *argv[])
+{
+        int size;
+
+        MPI_Comm parent;
+        MPI_Comm sibling;
+        MPI_Init(&argc, &argv);
+        MPI_Comm_get_parent(&parent);
+
+        MPI_Recv(&size, 1, MPI_INT, 0, MPI_ANY_TAG, parent, MPI_STATUS_IGNORE);
+
+        const int SIZE = size;
+
+        int arr[SIZE];
+
+        MPI_Recv(&arr, SIZE, MPI_INT, 0, MPI_ANY_TAG, parent, MPI_STATUS_IGNORE);
+
+        const int SIZE_F = 9*size;
+
+        int F[SIZE_F];
+
+        int size_f = 0;
+        printf("TERMINATE %d\n",size);
+
+        Hyper_Quick(arr,size,F,&size_f);
+
+        MPI_Send(&size_f,1,MPI_INT,0,0,parent);
+
+        if(size_f<0)
+                MPI_Send(&F,1,MPI_INT,0,0,parent);
+        else
+            	MPI_Send(&F,size_f,MPI_INT,0,0,parent);
+
+        MPI_Finalize();
+        return 0;
+}

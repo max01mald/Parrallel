@@ -1,0 +1,120 @@
+#include "mpi.h"
+#include <stdio.h>
+#include <math.h>
+
+void print(int arr[], int size)
+{
+        int i=0;
+        while(i<size)
+        {
+                printf("%d",arr[i]);
+                i++;
+        }
+        printf("\n");
+}
+
+void random_fill(int arr[], int size)
+{
+        int i=0;
+
+        while(i<size)
+        {
+                arr[i] = 1 + rand() % 10;
+                i++;
+        }
+}
+
+void array_transfer(int arr[], int arr2[], int sect, int length)
+{
+        int i=0;
+
+
+        while(i<length)
+        {
+                arr2[i] = arr[sect*length+i];
+                i++;
+        }
+
+}
+
+void array_fill(int arr[], int* i, int arr2[], int size)
+{
+        int j=0;
+
+        while(j<size)
+        {
+                arr[*i] = arr2[j];
+                j++;
+                *i = *i +1;
+        }
+}
+
+int main(int argc, char *argv[])
+{
+        MPI_Comm children;
+        MPI_Init(&argc, &argv);
+
+        int amount = 8;
+
+        const int SIZE = 10000;
+        int send_size = SIZE / amount;
+
+        const int SEND_SIZE = send_size;
+
+        int arr[SIZE];
+        int arr2[SEND_SIZE];
+
+        random_fill(arr, SIZE);
+
+        double time, time2;
+
+        time = MPI_Wtime();
+
+        MPI_Comm_spawn("Slave", MPI_ARGV_NULL, amount, MPI_INFO_NULL, 0, MPI_COMM_SELF, &children, MPI_ERRCODES_IGNORE);
+
+        int i=0;
+
+        while(i<amount)
+        {
+                array_transfer(arr,arr2,i,send_size);
+                MPI_Send(&send_size, 1, MPI_INT, i, 0, children);
+                MPI_Send(&arr2, send_size, MPI_INT, i, 0, children);
+                i++;
+        }
+
+        int fill = 0;
+
+        i=0;
+
+        while(i<amount)
+        {
+                MPI_Recv(&send_size, 1, MPI_INT,i,0,children,MPI_STATUS_IGNORE);
+
+
+                if(send_size>0)
+                {
+                        const int SIZE_R = send_size;
+                        int arrR[SIZE_R];
+
+                        MPI_Recv(&arrR,send_size,MPI_INT,i,0,children,MPI_STATUS_IGNORE);
+
+                        array_fill(arr,&fill,arrR,send_size);
+                }
+                else
+                int arrR[1];
+
+                        MPI_Recv(&arrR,1,MPI_INT,i,0,children,MPI_STATUS_IGNORE);
+                }
+
+                i++;
+        }
+
+        MPI_Finalize();
+
+        time2 = MPI_Wtime();
+
+        print(arr,SIZE);
+
+        printf("Time elapsed %.20f\n",time2-time);
+        return 0;
+}
